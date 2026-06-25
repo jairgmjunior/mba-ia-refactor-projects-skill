@@ -32,7 +32,7 @@ Para padronizar a sua auditoria e os relatórios gerados pela IA, utilize a segu
 ```bash
 # Executar a skill no projeto com problemas
 cd code-smells-project
-claude "/refactor-arch"
+codex "/refactor-arch"
 ```
 
 ```
@@ -183,13 +183,13 @@ Execute sua skill nos 3 projetos e valide que ela funciona em todas as stacks.
 
 #### Projeto 1 — code-smells-project (Python/Flask)
 
-Invocar a skill no Claude Code:
+Invocar a skill com Codex CLI:
 
 ```bash
-claude "/refactor-arch"
+codex "/refactor-arch"
 ```
 
-> **Nota:** O comando acima é o exemplo com Claude Code. Se você estiver usando Gemini CLI ou Codex, utilize o comando equivalente para invocar uma skill na sua ferramenta.
+> **Nota:** O comando acima é o exemplo com Codex. Se você estiver usando Gemini CLI, utilize o comando equivalente para invocar uma skill na sua ferramenta.
 
 - Verificar que a Fase 1 detecta corretamente a stack e imprime o resumo
 - Verificar que a Fase 2 encontra no mínimo 5 dos problemas documentados na sua análise manual
@@ -210,7 +210,7 @@ Prove que sua skill é reutilizável em outro projeto de backend, mas com stack 
 
 ```bash
 cd ../ecommerce-api-legacy
-claude "/refactor-arch"
+codex "/refactor-arch"
 ```
 
 - Verificar que as 3 fases executam corretamente neste projeto
@@ -226,7 +226,7 @@ Agora o teste com um projeto Python/Flask que já possui alguma organização de
 
 ```bash
 cd ../task-manager-api
-claude "/refactor-arch"
+codex "/refactor-arch"
 ```
 
 - Verificar que:
@@ -395,15 +395,15 @@ Escreva o SKILL.md e os arquivos de referência.
 ```bash
 # Projeto 1
 cd code-smells-project
-claude "/refactor-arch"
+codex "/refactor-arch"
 
 # Projeto 2
 cd ../ecommerce-api-legacy
-claude "/refactor-arch"
+codex "/refactor-arch"
 
 # Projeto 3
 cd ../task-manager-api
-claude "/refactor-arch"
+codex "/refactor-arch"
 ```
 
 Salve a saída da Fase 2 de cada projeto em `reports/audit-project-{1,2,3}.md`.
@@ -446,3 +446,212 @@ A skill deve atingir os seguintes mínimos em **todos os 3 projetos**:
 - **Projetos diferentes exigem adaptação** — a Fase 3 de um projeto já parcialmente organizado não vai ter as mesmas transformações de um monolito. Sua skill deve se adaptar ao contexto.
 - **Pedir confirmação na Fase 2 é obrigatório** — o humano deve revisar o relatório antes de qualquer modificação.
 - **Consulte as referências do curso** — revise a documentação oficial da ferramenta escolhida e os materiais das aulas para relembrar a estrutura e anatomia de uma skill.
+
+---
+
+## A. Análise Manual
+
+### Projeto 1: code-smells-project (Python/Flask)
+
+**Stack:** Python 3.x + Flask + SQLite
+
+#### Problemas Identificados
+
+| Severidade | Problema | Arquivo:Linha | Descrição | Impacto |
+|:---:|:---|:---|:---|:---|
+| **CRITICAL** | Hardcoded Credentials | app.py:8 | `SECRET_KEY = "minha-chave-super-secreta-123"` + `DEBUG = True` | Risco de segurança grave em produção |
+| **CRITICAL** | SQL Injection Vulnerável | models.py:28-35 | `"SELECT * FROM produtos WHERE id = " + str(id)` sem prepared statements | Possibilita ataque SQL Injection |
+| **CRITICAL** | God Class | app.py:1-89 | Arquivo contém roteamento, config, health check E endpoint admin que reseta banco sem autenticação | Impossível testar, quebra em isolamento |
+| **HIGH** | Acesso Direto a DB sem Abstração | models.py:1-150 | Todas operações com queries cruas, sem camada de abstração | Difícil manutenção e testes |
+| **HIGH** | Falta de Separação de Responsabilidades | controllers.py:1-100 | Validações, chamadas a BD e respostas HTTP todas misturadas | Código acoplado e difícil testar |
+| **MEDIUM** | Duplicação de Código | controllers.py + models.py | Mesmas validações de produto repetidas em vários pontos | Difícil manutenção |
+| **MEDIUM** | Magic Strings | controllers.py:45-60 | Categorias hardcoded em lista local | Sem padronização |
+| **LOW** | Variável Global | database.py:5 | `db_connection = None` como global | Risco em testes paralelos |
+
+---
+
+### Projeto 2: ecommerce-api-legacy (Node.js/Express)
+
+**Stack:** Node.js + Express + SQLite3
+
+#### Problemas Identificados
+
+| Severidade | Problema | Arquivo:Linha | Descrição | Impacto |
+|:---:|:---|:---|:---|:---|
+| **CRITICAL** | Hardcoded Credentials | utils.js:2-6 | Senha BD, chave pagamento, SMTP todas expostas em código | Risco severo — comprometimento total da app |
+| **CRITICAL** | God Class | AppManager.js:1-150 | Classe gerencia BD, rotas, checkout, pagamento, auditoria | Impossível testar cada responsabilidade |
+| **CRITICAL** | Fake Crypto | utils.js:16-22 | `badCrypto()` não é criptografia real, apenas base64 | Senhas completamente inseguras |
+| **HIGH** | Callback Hell | AppManager.js:35-80 | Callbacks aninhados sem tratamento de erro estruturado | Difícil debug, maintenance |
+| **HIGH** | Estado Global Mutável | utils.js:8-9 | `globalCache` e `totalRevenue` mutáveis | Bugs em concorrência/testes |
+| **MEDIUM** | Queries N+1 | AppManager.js:100-120 | Loop sobre cursos, cada um faz query de enrollments | Gargalo de performance |
+| **MEDIUM** | Validação Inadequada | AppManager.js:27 | Cartão validado apenas por `cc.startsWith("4")` | Insuficiente |
+| **LOW** | Nomes Variáveis Obscuros | AppManager.js:25-28 | `u`, `e`, `p`, `cid`, `cc` | Reduz legibilidade |
+
+---
+
+### Projeto 3: task-manager-api (Python/Flask)
+
+**Stack:** Python 3.x + Flask + Flask-SQLAlchemy + SQLite
+
+#### Problemas Identificados
+
+| Severidade | Problema | Arquivo:Linha | Descrição | Impacto |
+|:---:|:---|:---|:---|:---|
+| **HIGH** | Duplicação de Serialização | task_routes.py:15-50 | `to_dict()` replicado manualmente em cada controller | Difícil manutenção |
+| **MEDIUM** | Lógica de Negócio na Rota | task_routes.py:25-40 | Cálculo de `overdue` repetido manualmente | Deveria estar no modelo |
+| **MEDIUM** | Falta de Validação Centralizada | task_routes.py:60+ | Cada rota valida dados manualmente | Sem padronização |
+| **MEDIUM** | Hardcoded Secret Key | app.py:13 | `SECRET_KEY = 'super-secret-key-123'` em código | Não deve estar no código-fonte |
+| **LOW** | Importações Desnecessárias | task_routes.py:7-8 | `import os, sys` não utilizados | Poluição de namespace |
+
+---
+
+## B. Construção da Skill
+
+### Decisões de Design
+
+1. **Agnóstica de Tecnologia**
+   - Detecta linguagem via extensões (.py, .js)
+   - Identifica frameworks por imports: Flask, Express, FastAPI, Django
+   - Mapeia estrutura de diretórios genérica
+
+2. **Catálogo Extensível**
+   - 12 anti-patterns com sinais de deteccao precisos, incluindo APIs deprecated
+   - Severidade distribuida entre CRITICAL, HIGH, MEDIUM e LOW
+   - Cada padrão com exemplos de código
+
+3. **3 Fases Sequenciais**
+   - **Fase 1**: Análise → detecção de stack, domínio, estrutura
+   - **Fase 2**: Auditoria → relatório, pausa para confirmação
+   - **Fase 3**: Refatoração → reestruturação MVC, validação
+
+### Anti-patterns Inclusos
+
+- **CRITICAL (3)**: Hardcoded Credentials, SQL Injection, God Class
+- **HIGH (3)**: Acesso direto BD, Callback Hell, Estado Global
+- **MEDIUM (2)**: Queries N+1, Duplicação de código
+- **LOW (3)**: Nomes obscuros, importacoes desnecessarias, APIs deprecated/obsoletas
+
+### Garantia de Agnóstica
+
+- Detecção automática de linguagem/framework
+- Princípios MVC aplicam-se a qualquer stack
+- Transformações genéricas respeitam convenções de cada tecnologia
+
+---
+
+## C. Resultados
+
+### Execucao nos 3 Projetos
+
+#### Projeto 1: code-smells-project
+- OK Fase 1: Python + Flask detectados.
+- OK Fase 2: relatorio salvo em `reports/audit-project-1.md`.
+- OK Fase 3: estrutura `src/config`, `src/models`, `src/controllers`, `src/routes`, `src/middleware`, `src/utils` criada.
+- OK Smoke test: `/health`, `/produtos` e `/login` responderam HTTP 200.
+
+#### Projeto 2: ecommerce-api-legacy
+- OK Fase 1: Node.js + Express detectados.
+- OK Fase 2: relatorio salvo em `reports/audit-project-2.md`.
+- OK Fase 3: `AppManager` saiu do fluxo principal; routes/controllers/models/services criados.
+- OK Smoke test: `/api/admin/financial-report` e `/api/checkout` responderam HTTP 200.
+
+#### Projeto 3: task-manager-api
+- OK Fase 1: Python + Flask-SQLAlchemy detectados.
+- OK Fase 2: relatorio salvo em `reports/audit-project-3.md`.
+- OK Fase 3: `config`, `controllers`, `middleware` e `utils/validators.py` adicionados.
+- OK Smoke test: `/health`, `/tasks` e `/users` responderam HTTP 200.
+
+### Checklist de Validacao
+
+| Criterio | Projeto 1 | Projeto 2 | Projeto 3 | Status |
+|:---|:---:|:---:|:---:|:---:|
+| Linguagem detectada | Python | Node.js | Python | OK |
+| Framework detectado | Flask | Express | Flask+SQLAlchemy | OK |
+| >= 5 findings | Sim | Sim | Sim | OK |
+| >= 1 CRITICAL/HIGH | Sim | Sim | Sim | OK |
+| Estrutura MVC | Sim | Sim | Sim | OK |
+| App funciona pos-refatoracao | Sim | Sim | Sim | OK |
+
+### Validacao executada em 2026-06-06
+
+```bash
+python -m compileall code-smells-project task-manager-api
+node --check ecommerce-api-legacy/src/app.js
+node --check ecommerce-api-legacy/src/controllers/checkoutController.js
+node --check ecommerce-api-legacy/src/controllers/reportController.js
+# Smoke tests: Projeto 1, Projeto 2 e Projeto 3 retornaram HTTP 200 nos endpoints principais.
+```
+
+### Revisao adicional em 2026-06-25
+
+Durante a avaliacao final foram corrigidas pendencias residuais:
+
+- `code-smells-project`: `/usuarios` deixou de expor `senha`; `/admin/reset-db` passou a exigir `ADMIN_TOKEN` via header `X-Admin-Token`.
+- `ecommerce-api-legacy`: hash de senha trocado de SHA-256 simples para PBKDF2 com salt; validacao de cartao passou a usar algoritmo de Luhn.
+- `task-manager-api`: usos deprecated de `Query.get()` foram substituidos por `db.session.get()`.
+
+Validacoes executadas:
+
+```bash
+python -m compileall code-smells-project task-manager-api
+node --check ecommerce-api-legacy/src/app.js
+node --check ecommerce-api-legacy/src/utils/security.js
+node --check ecommerce-api-legacy/src/services/paymentService.js
+# Smoke test Python: code-smells-project /health, /produtos, /usuarios e /login = 200.
+# Smoke test Python: task-manager-api /health, /tasks e /users = 200.
+# Smoke test Node: /api/admin/financial-report = 200; /api/checkout com cartao valido = 200; cartao invalido = 400.
+```
+
+---
+
+## D. Como Executar
+
+### Pre-requisitos
+
+- Python 3.8+ com pip
+- Node.js 14+ com npm
+- OpenAI Codex CLI (ou ferramenta equivalente aceita pelo desafio)
+
+### Instalar Dependencias
+
+```bash
+# Projeto 1
+cd code-smells-project
+pip install -r requirements.txt
+
+# Projeto 2
+cd ../ecommerce-api-legacy
+npm install
+
+# Projeto 3
+cd ../task-manager-api
+pip install -r requirements.txt
+```
+
+### Executar a Skill
+
+```bash
+# Projeto 1
+cd code-smells-project
+codex "/refactor-arch"
+
+# Projeto 2
+cd ../ecommerce-api-legacy
+codex "/refactor-arch"
+
+# Projeto 3
+cd ../task-manager-api
+codex "/refactor-arch"
+```
+
+### Validar Refatoracao
+
+```bash
+# Python/Flask
+python app.py
+curl http://localhost:5000/health
+
+# Node/Express
+npm start
+curl http://localhost:3000/api/admin/financial-report
+```
